@@ -46,18 +46,6 @@ fi
 # shellcheck disable=SC2016
 append_to_zshrc 'export PATH="$HOME/.bin:$PATH"'
 
-HOMEBREW_PREFIX="/usr/local"
-
-if [ -d "$HOMEBREW_PREFIX" ]; then
-  if ! [ -r "$HOMEBREW_PREFIX" ]; then
-    sudo chown -R "$LOGNAME:admin" /usr/local
-  fi
-else
-  sudo mkdir "$HOMEBREW_PREFIX"
-  sudo chflags norestricted "$HOMEBREW_PREFIX"
-  sudo chown -R "$LOGNAME:admin" "$HOMEBREW_PREFIX"
-fi
-
 update_shell() {
   local shell_path;
   shell_path="$(which zsh)"
@@ -89,77 +77,65 @@ gem_install_or_update() {
   fi
 }
 
-if ! command -v brew >/dev/null; then
-  fancy_echo "Installing Homebrew ..."
-    curl -fsS \
-      'https://raw.githubusercontent.com/Homebrew/install/master/install' | ruby
+fancy_echo "Updating sources list..."
 
-    append_to_zshrc '# recommended by brew doctor'
+# Git
+sudo apt-get install git
 
-    # shellcheck disable=SC2016
-    append_to_zshrc 'export PATH="/usr/local/bin:$PATH"' 1
+# ctags
+git clone https://github.com/universal-ctags/ctags.git
+cd ctags
+./autogen.sh
+./configure
+make
+sudo make install
+cd
 
-    export PATH="/usr/local/bin:$PATH"
-fi
+# Node and Yarn stuff
+curl -sL https://deb.nodesource.com/setup_8.x | sudo -E bash -
+curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
+echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 
-if brew list | grep -Fq brew-cask; then
-  fancy_echo "Uninstalling old Homebrew-Cask ..."
-  brew uninstall --force brew-cask
-fi
-
-fancy_echo "Updating Homebrew formulae ..."
-brew update --force # https://github.com/Homebrew/brew/issues/1151
-brew bundle --file=- <<EOF
-tap "thoughtbot/formulae"
-tap "homebrew/services"
-tap "universal-ctags/universal-ctags"
-tap "caskroom/cask"
+# Dependencies
+sudo apt-get install openssl zlib1g-dev build-essential libssl-dev libxml2-dev
+libxslt1-dev python-software-properties libffi-dev libgl1-mesa-dev
+nodejs yarn
 
 # Unix
-brew "universal-ctags", args: ["HEAD"]
-brew "git"
-brew "openssl"
-brew "rcm"
-brew "reattach-to-user-namespace"
-brew "the_silver_searcher"
-brew "tmux"
-brew "vim"
-brew "watchman"
-brew "zsh"
+sudo apt-get install rcm silversearcher-ag tmux vim zsh
+
 
 # Heroku
-brew "heroku"
-brew "parity"
-
-# GitHub
-brew "hub"
+sudo snap install heroku
 
 # Image manipulation
-brew "imagemagick"
+sudo apt-get install imagemagick libmagickcore-dev libmagickwand-dev
 
 # Testing
-brew "qt@5.5" if MacOS::Xcode.installed?
+# brew "qt@5.5" if MacOS::Xcode.installed?
 
 # Programming language prerequisites and package managers
-brew "libyaml" # should come after openssl
-brew "coreutils"
-brew "yarn"
-cask "gpg-suite"
+sudo apt-get install libyaml-dev coreutils
 
-# Databases
-brew "postgres", restart_service: :changed
-brew "redis", restart_service: :changed
-EOF
+# Postgres
+sudo sh -c "echo 'deb http://apt.postgresql.org/pub/repos/apt/ xenial-pgdg main' > /etc/apt/sources.list.d/pgdg.list"
+wget --quiet -O - http://apt.postgresql.org/pub/repos/apt/ACCC4CF8.asc | sudo
+apt-key add -
+sudo apt-get update
+sudo apt-get install postgresql-common
+sudo apt-get install postgresql-9.5 libpq-dev
 
-if brew list | grep --silent "qt@5.5"; then
-  fancy_echo "Symlink qmake binary to /usr/local/bin for Capybara Webkit..."
-  brew unlink qt@5.5
-  brew link --force qt@5.5
+# Redis
+sudo apt-get install tcl
+cd /tmp
+curl -O http://download.redis.io/redis-stable.tar.gz
+tar xzvf redis-stable.tar.gz
+cd redis-stable
+make
+if make test; then
+  sudo make install
 fi
-
-fancy_echo "Update heroku binary..."
-brew unlink heroku
-brew link --force heroku
+cd
 
 fancy_echo "Configuring asdf version manager..."
 if [ ! -d "$HOME/.asdf" ]; then
@@ -180,6 +156,7 @@ install_asdf_plugin() {
 source "$HOME/.asdf/asdf.sh"
 install_asdf_plugin "ruby" "https://github.com/asdf-vm/asdf-ruby.git"
 install_asdf_plugin "nodejs" "https://github.com/asdf-vm/asdf-nodejs.git"
+install_asdf_plugin "elixir" "https://github.com/asdf-vm/asdf-elixir.git"
 
 install_asdf_language() {
   local language="$1"
@@ -203,8 +180,21 @@ fancy_echo "Installing latest Node..."
 bash "$HOME/.asdf/plugins/nodejs/bin/import-release-team-keyring"
 install_asdf_language "nodejs"
 
+fancy_echo "Install latest elixir..."
+wget https://packages.erlang-solutions.com/erlang-solutions_1.0_all.deb && sudo
+dpkg -i erlang-solutions_1.0_all.deb
+sudo apt-get update
+sudo apt-get install esl-erlang
+install_asdf_language "elixir"
+
 if [ -f "$HOME/.laptop.local" ]; then
   fancy_echo "Running your customizations from ~/.laptop.local ..."
   # shellcheck disable=SC1090
   . "$HOME/.laptop.local"
 fi
+
+# Rails
+sudo apt-get install rails -v 5.1.4
+
+# Phoenix
+mix archive.install https://github.com/phoenixframework/archives/raw/master/phx_new.ez
