@@ -79,10 +79,11 @@ gem_install_or_update() {
 
 fancy_echo "Updating sources list..."
 
-# Git
-sudo apt-get install git
+# Git & Curl
+sudo apt-get install git git-core curl
 
 # ctags
+sudo apt-get install autoconf
 git clone https://github.com/universal-ctags/ctags.git
 cd ctags
 ./autogen.sh
@@ -99,20 +100,25 @@ echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/source
 # Dependencies
 sudo apt-get install openssl zlib1g-dev build-essential libssl-dev libxml2-dev
 sudo apt-get install libxslt1-dev python-software-properties libffi-dev
-sudo apt-get install libgl1-mesa-dev nodejs yarn
+sudo apt-get install libgl1-mesa-dev nodejs
 
 # Unix
-sudo apt-get install rcm silversearcher-ag tmux vim zsh
+sudo add-apt-repository ppa:jonathonf/vim
+sudo apt-get update
+sudo apt-get install silversearcher-ag tmux zsh vim
+wget https://github.com/robbyrussell/oh-my-zsh/raw/master/tools/install.sh -O - | zsh
+chsh -s `which zsh`
 
 
 # Heroku
-sudo snap install heroku
+sudo snap install heroku --classic
 
 # Image manipulation
 sudo apt-get install imagemagick libmagickcore-dev libmagickwand-dev
 
 # Testing
 # brew "qt@5.5" if MacOS::Xcode.installed?
+sudo apt-get install qt5-default libqt5webkit5-dev gstreamer1.0-plugins-base gstreamer1.0-tools gstreamer1.0-x
 
 # Programming language prerequisites and package managers
 sudo apt-get install libyaml-dev coreutils
@@ -138,7 +144,7 @@ cd
 
 fancy_echo "Configuring asdf version manager..."
 if [ ! -d "$HOME/.asdf" ]; then
-  git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.3.0
+  git clone https://github.com/asdf-vm/asdf.git ~/.asdf --branch v0.4.2
   append_to_zshrc "source $HOME/.asdf/asdf.sh" 1
 fi
 
